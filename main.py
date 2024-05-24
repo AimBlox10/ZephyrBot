@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import os
-from flask import Flask
 
 # Bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -100,23 +99,6 @@ async def info(ctx):
     embed.add_field(name="Creator", value="`OrangeMario`", inline=False)
     embed.add_field(name="Commands", value="`!kick (username) (reason)` `!ban (username) (reason)` `!history` `!info`", inline=False)
     await ctx.reply(embed=embed)
-
-# Flask server to keep the bot running
-from flask import Flask
-from threading import Thread
-
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Your bot is running!"
-
-def run():
-    app.run(host='0.0.0.0', port=8080)
-
-def keep_alive():
-    t = Thread(target=run)
-    t.start()
 
 # Run the bot
 keep_alive()
