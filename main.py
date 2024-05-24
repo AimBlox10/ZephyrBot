@@ -1,8 +1,7 @@
 import discord
 from discord.ext import commands
 import os
-from flask import Flask
-import threading
+from keep_alive import keep_alive # Import the keep_alive function
 
 # Bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -74,21 +73,6 @@ async def ban(ctx, member: discord.Member, *, reason='No reason provided'):
         await ctx.reply("I don't have permission to ban this member.")
     except discord.HTTPException as e:
         await ctx.reply(f'Ban failed: {e}')
-
-# Flask web server to keep the bot running
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "The bot is running!"
-
-def run_flask():
-    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
-
-# Function to run the Flask web server in a separate thread
-def keep_alive():
-    t = threading.Thread(target=run_flask)
-    t.start()
 
 # Run the Flask web server and the bot
 keep_alive()
