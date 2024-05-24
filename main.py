@@ -1,6 +1,8 @@
 import discord
 from discord.ext import commands
 import os
+from flask import Flask
+import threading
 
 # Bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
@@ -25,6 +27,11 @@ restricted_roles = [123456789012345678, 987654321098765432]  # Replace with actu
 def has_allowed_role(ctx):
     return any(role.id in allowed_roles for role in ctx.author.roles)
 
+# Function to log actions
+def log_action(action, member, reason):
+    with open(HISTORY_FILE, 'a') as f:
+        f.write(f'{action}: {member} - {reason}\n')
+
 # Create bot instance
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -34,7 +41,7 @@ async def on_ready():
     print(f'We have logged in as {bot.user}')
     await bot.change_presence(activity=discord.Game(name="ZephyrBot | !info"))
 
-# Updated Command to kick a user
+# Command to kick a user
 @bot.command()
 @commands.check(has_allowed_role)
 async def kick(ctx, member: discord.Member, *, reason='No reason provided'):
@@ -43,16 +50,13 @@ async def kick(ctx, member: discord.Member, *, reason='No reason provided'):
         return
 
     try:
-        await member.send(f'You have been kicked from `{ctx.guild.name}` for the following reason: {reason}')
+        await member.kick(reason=reason)
+        await ctx.reply(f'User {member} has been kicked for: {reason}')
+        log_action('Kick', member, reason)
     except discord.Forbidden:
-        await ctx.reply(f'Could not send DM to {member.mention}. Proceeding with kick.')
-
-    await member.kick(reason=reason)
-    await ctx.reply(f'{member.mention} has been kicked for : {reason}')
-
-    # Save kick history to file with the correct format
-    with open(HISTORY_FILE, 'a') as file:
-        file.write(f'KICK: {member.id} - {member.name} - {reason}\n')
+        await ctx.reply("I don't have permission to kick this member.")
+    except discord.HTTPException as e:
+        await ctx.reply(f'Kick failed: {e}')
 
 # Command to ban a user
 @bot.command()
@@ -63,41 +67,29 @@ async def ban(ctx, member: discord.Member, *, reason='No reason provided'):
         return
 
     try:
-        await member.send(f'You have been banned from `{ctx.guild.name}` for the following reason: {reason}')
+        await member.ban(reason=reason)
+        await ctx.reply(f'User {member} has been banned for: {reason}')
+        log_action('Ban', member, reason)
     except discord.Forbidden:
-        await ctx.reply(f'Could not send DM to {member.mention}. Proceeding with ban.')
+        await ctx.reply("I don't have permission to ban this member.")
+    except discord.HTTPException as e:
+        await ctx.reply(f'Ban failed: {e}')
 
-    await member.ban(reason=reason)
-    await ctx.reply(f'{member.mention} has been banned for : {reason}')
-    # Save ban history to file
-    with open(HISTORY_FILE, 'a') as file:
-        file.write(f'BAN: {member.id} - {member.name} - {reason}\n')
+# Flask web server to keep the bot running
+app = Flask('')
 
-# Command to show kick and ban history
-@bot.command()
-@commands.check(has_allowed_role)
-async def history(ctx):
-    try:
-        with open(HISTORY_FILE, 'r') as file:
-            history_content = file.read()
+@app.route('/')
+def home():
+    return "The bot is running!"
 
-        if not history_content:
-            await ctx.reply("No history found.")
-            return
+def run_flask():
+    app.run(host='0.0.0.0', port=int(os.getenv('PORT', 8080)))
 
-        await ctx.reply(f"**Kick and Ban History:**\n```{history_content}```")
-    except FileNotFoundError:
-        await ctx.reply("No history found.")
-    except Exception as e:
-        await ctx.reply(f"An error occurred: {e}")
+# Function to run the Flask web server in a separate thread
+def keep_alive():
+    t = threading.Thread(target=run_flask)
+    t.start()
 
-# Command to display bot info
-@bot.command()
-async def info(ctx):
-    embed = discord.Embed(title="About Me", description="`Bot is created to kick, ban & view the kick & ban history`", color=0x7289DA)
-    embed.add_field(name="Creator", value="`OrangeMario`", inline=False)
-    embed.add_field(name="Commands", value="`!kick (username) (reason)` `!ban (username) (reason)` `!history` `!info`", inline=False)
-    await ctx.reply(embed=embed)
-
-# Run the bot
+# Run the Flask web server and the bot
+keep_alive()
 bot.run(TOKEN)
