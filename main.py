@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import os
-from flask import Flask
 
 # Bot token
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
